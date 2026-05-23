@@ -1,0 +1,100 @@
+<!DOCTYPE html><html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cloud Upload Gallery</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;min-height:100vh}
+    header{position:sticky;top:0;background:rgba(15,23,42,.95);backdrop-filter:blur(10px);padding:18px;text-align:center;z-index:5}
+    h1{margin-bottom:14px}
+    .top{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    input,button{padding:12px 14px;border-radius:12px;font-size:15px}
+    input{border:2px solid #38bdf8;background:transparent;color:#fff;outline:none}
+    button{border:2px solid #38bdf8;background:transparent;color:#fff;cursor:pointer;transition:.25s;font-weight:bold}
+    button:hover{transform:scale(1.05);background:#38bdf8;color:#111827}
+    button:active{transform:scale(.94)}
+    #fileInput{display:none}
+    .wrap{max-width:1200px;margin:auto;padding:20px}
+    .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+    .card{background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.08);border-radius:18px;overflow:hidden;cursor:pointer;transition:.25s}
+    .card:hover{transform:translateY(-6px);border-color:#38bdf8}
+    .card img{width:100%;height:220px;object-fit:cover;display:block}
+    .meta{padding:12px;text-align:center;font-weight:bold}
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);justify-content:center;align-items:center;z-index:999;padding:20px}
+    .modal img{max-width:95%;max-height:88vh;border-radius:14px}
+    .close{position:absolute;top:18px;right:25px;font-size:40px;cursor:pointer}
+    .status{text-align:center;margin:14px 0;font-size:14px}
+  </style>
+</head>
+<body>
+<header>
+  <h1>☁️ Cloud Photo Gallery</h1>
+  <div class="top">
+    <input id="search" placeholder="फोटो खोजें...">
+    <button onclick="fileInput.click()">Upload Image</button>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+  <div class="status" id="status">Ready</div>
+</header><div class="wrap">
+  <div class="gallery" id="gallery"></div>
+</div><div class="modal" id="modal">
+  <span class="close" onclick="closeModal()">&times;</span>
+  <img id="modalImg">
+</div><script>
+const IMGBB_KEY = "PASTE_YOUR_IMGBB_API_KEY"; // replace
+const STORAGE_KEY = "cloud_gallery_shared";
+let photos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(photos)); }
+
+function render(){
+  const q = search.value.toLowerCase();
+  gallery.innerHTML='';
+  photos.filter(p=>p.title.toLowerCase().includes(q)).forEach(p=>{
+    const card = document.createElement('div');
+    card.className='card';
+    card.innerHTML=`<img src="${p.url}"><div class="meta">${p.title}</div>`;
+    card.onclick=()=>openModal(p.url);
+    gallery.appendChild(card);
+  });
+}
+
+async function uploadToImgBB(file){
+  const fd = new FormData();
+  fd.append('image', file);
+  status.textContent='Uploading...';
+
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
+    method:'POST', body:fd
+  });
+  const data = await res.json();
+  if(!data.success) throw new Error('Upload failed');
+  return data.data.url;
+}
+
+fileInput.addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+
+  try{
+    const url = await uploadToImgBB(file);
+    const title = prompt('फोटो का टाइटल दें:') || file.name;
+    photos.unshift({title,url});
+    save();
+    render();
+    status.textContent='Upload complete';
+  }catch(err){
+    status.textContent='Upload failed';
+    alert('ImgBB API key सही डालें');
+  }
+  e.target.value='';
+});
+
+function openModal(src){ modal.style.display='flex'; modalImg.src=src; }
+function closeModal(){ modal.style.display='none'; }
+window.onclick=(e)=>{ if(e.target===modal) closeModal(); }
+search.addEventListener('input', render);
+render();
+</script></body>
+</html>
